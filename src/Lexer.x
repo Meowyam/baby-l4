@@ -7,10 +7,8 @@
 module Lexer
 -- (
 --   Token(..)
---   -- scanTokens,
 --   , AlexPosn(..)
 --   , TokenKind(..)
---   , unLex
 --   , Alex(..)
 --   , runAlex'
 --   , alexMonadScan'
@@ -31,7 +29,7 @@ import Data.Word (Word8)
 import Data.Char (ord)
 import qualified Data.Bits
 
-
+import Coordinates
 
 }
 
@@ -53,55 +51,52 @@ tokens :-
   -- Syntax
   -- Structuring elements of an L4 file
 
-  assert                        { lex' TokenAssert }
-  class                         { lex' TokenClass }
-  decl                          { lex' TokenDecl }
-  defn                          { lex' TokenDefn }
-  extends                       { lex' TokenExtends }
-  lexicon                       { lex' TokenLexicon }
-  rule                          { lex' TokenRule }
+  assert                        { lex TokenAssert }
+  class                         { lex TokenClass }
+  decl                          { lex TokenDecl }
+  extends                       { lex TokenExtends }
+  lexicon                       { lex TokenLexicon }
+  rule                          { lex TokenRule }
 
   -- Types
-  Bool                          { lex' TokenBool }
-  Int                           { lex' TokenInt }
+  Bool                          { lex TokenBool }
+  Int                           { lex TokenInt }
 
   -- Expressions
-  let                           { lex' TokenLet }
-  in                            { lex' TokenIn }
-  not                           { lex' TokenNot }
-  forall                        { lex' TokenForall }
-  exists                        { lex' TokenExists }
-  if                            { lex' TokenIf }
-  then                          { lex' TokenThen }
-  else                          { lex' TokenElse }
-  for                           { lex' TokenFor }
-  True                          { lex' TokenTrue }
-  False                         { lex' TokenFalse }
+  not                           { lex TokenNot }
+  forall                        { lex TokenForall }
+  exists                        { lex TokenExists }
+  if                            { lex TokenIf }
+  then                          { lex TokenThen }
+  else                          { lex TokenElse }
+  for                           { lex TokenFor }
+  True                          { lex TokenTrue }
+  False                         { lex TokenFalse }
 
   -- Symbols
-  "->"                          { lex' TokenArrow }
-  \\                            { lex' TokenLambda }
-  "-->"                         { lex' TokenImpl }
-  "||"                          { lex' TokenOr }
-  "&&"                          { lex' TokenAnd }
-  \=                            { lex' TokenEq }
-  \<                            { lex' TokenLt }
-  \>                            { lex' TokenGt }
-  [\+]                          { lex' TokenAdd }
-  [\-]                          { lex' TokenSub }
-  [\*]                          { lex' TokenMul }
-  "/"                           { lex' TokenDiv }
-  "%"                           { lex' TokenMod }
-  \.                            { lex' TokenDot }
-  \,                            { lex' TokenComma }
-  \:                            { lex' TokenColon }
-  \(                            { lex' TokenLParen }
-  \)                            { lex' TokenRParen }
-  \{                            { lex' TokenLBrace }
-  \}                            { lex' TokenRBrace }
+  "->"                          { lex TokenArrow }
+  \\                            { lex TokenLambda }
+  "-->"                         { lex TokenImpl }
+  "||"                          { lex TokenOr }
+  "&&"                          { lex TokenAnd }
+  \=                            { lex TokenEq }
+  \<                            { lex TokenLt }
+  \>                            { lex TokenGt }
+  [\+]                          { lex TokenAdd }
+  [\-]                          { lex TokenSub }
+  [\*]                          { lex TokenMul }
+  "/"                           { lex TokenDiv }
+  "%"                           { lex TokenMod }
+  \.                            { lex TokenDot }
+  \,                            { lex TokenComma }
+  \:                            { lex TokenColon }
+  \(                            { lex TokenLParen }
+  \)                            { lex TokenRParen }
+  \{                            { lex TokenLBrace }
+  \}                            { lex TokenRBrace }
 
   -- Numbers and identifiers
-  $digit+                       { lex (TokenNum . read) }
+  $digit+                       { lex TokenNum }
   $alpha [$alpha $digit \_ \']* { lex TokenSym }
 
 
@@ -367,12 +362,16 @@ getFilePath = liftM filePath alexGetUserState
 setFilePath :: FilePath -> Alex ()
 setFilePath = alexSetUserState . AlexUserState
 
-type Token = TokenAnn AlexPosn
+-- TODO: Check whether the change leads to conflicts
+-- type Token = TokenAnn AlexPosn
 
-data TokenAnn a = Token { tokenPos:: a, tokenLen :: Int, tokenKind :: TokenKind }
-  deriving (Show, Functor)
+-- data TokenAnn a = Token { tokenPos:: a, tokenLen :: Int, tokenKind :: TokenKind }
+--   deriving (Show, Functor)
 
-getTokenKind (Token _ _ k) = k
+-- getTokenKind (Token _ _ k) = k
+
+data Token = Token AlexPosn TokenKind String
+  deriving (Show)
 
 data TokenKind
   = TokenAssert
@@ -386,8 +385,6 @@ data TokenKind
   | TokenBool
   | TokenInt
 
-  | TokenLet
-  | TokenIn
   | TokenNot
   | TokenForall
   | TokenExists
@@ -420,70 +417,21 @@ data TokenKind
   | TokenRParen
   | TokenEOF
 
-  | TokenNum Integer
-  | TokenSym String
+  | TokenNum
+  | TokenSym
   deriving (Eq,Show)
 
--- For nice parser error messages.
-unLex :: TokenKind -> String
-unLex TokenAssert  = "assert"
-unLex TokenClass   = "class"
-unLex TokenDecl    = "decl"
-unLex TokenDefn    = "defn"
-unLex TokenExtends = "extends"
-unLex TokenLexicon = "lexicon"
-unLex TokenRule    = "rule"
-unLex TokenBool    = "Bool"
-unLex TokenInt     = "Int"
-unLex TokenLet     = "let"
-unLex TokenIn      = "in"
-unLex TokenNot     = "not"
-unLex TokenForall  = "forall"
-unLex TokenExists  = "exists"
-unLex TokenIf      = "if"
-unLex TokenThen    = "then"
-unLex TokenElse    = "else"
-unLex TokenFor     = "for"
-unLex TokenTrue    = "True"
-unLex TokenFalse   = "False"
-unLex TokenArrow   = "->"
-unLex TokenLambda  = "\\"
-unLex TokenImpl    = "-->"
-unLex TokenOr      = "||"
-unLex TokenAnd     = "&&"
-unLex TokenEq      = "="
-unLex TokenLt      = "<"
-unLex TokenGt      = ">"
-unLex TokenAdd     = "+"
-unLex TokenSub     = "-"
-unLex TokenMul     = "*"
-unLex TokenDiv     = "/"
-unLex TokenMod     = "%"
-unLex TokenDot     = "."
-unLex TokenComma   = ","
-unLex TokenColon   = ":"
-unLex TokenLParen  = "("
-unLex TokenRParen  = ")"
-unLex TokenLBrace  = "{"
-unLex TokenRBrace  = "}"
-unLex TokenEOF     = "<EOF>"
-unLex (TokenNum i) = show i
-unLex (TokenSym s) = show s
 
 alexEOF :: Alex Token
 alexEOF = do
   (p,_,_,_) <- alexGetInput
-  return $ Token p 0 TokenEOF
+  return $ Token p TokenEOF ""
 
+-- CHANGE
 -- Unfortunately, we have to extract the matching bit of string
 -- ourselves...
-lex :: (String -> TokenKind) -> AlexAction Token
-lex f = \(p,_,_,s) i -> return $ Token p i (f (take i s))
-
--- For constructing tokens that do not depend on
--- the input
-lex' :: TokenKind -> AlexAction Token
-lex' = lex . const
+lex :: TokenKind -> AlexAction Token
+lex tk = \(p,_,_,s) i -> return $ Token p tk (take i s)
 
 -- We rewrite alexMonadScan' to delegate to alexError' when lexing fails
 -- (the default implementation just returns an error message).
@@ -522,7 +470,7 @@ repeatUntil test single = single >>= go
       ys <- go y
       return (x:ys)
 
-isEof (Token _ _ TokenEOF) = True
+isEof (Token _ TokenEOF _) = True
 isEof _ = False
 
 scanTokens :: FilePath -> String -> Either Err [Token]
@@ -559,5 +507,35 @@ scanFile fname = scanTokens fname <$> readFile fname
 --       res <- go inp'
 --       let rest = act (take len str)
 --       return (rest : res)
+
+-- Transforming AlexPosn into coordinates
+
+
+token_posn (Token pos tk s) = pos
+tokenLength (Token pos tk s) = length s
+
+token_Var_val (Token pos TokenSym s) = s
+token_Int_val (Token pos TokenInt s) = (read s)
+
+
+coordOfPos :: AlexPosn -> CoordPt
+coordOfPos (AlexPn fp lp cp) = CoordPt lp cp
+
+coordOfToken :: Token -> CoordPt
+coordOfToken = coordOfPos . token_posn
+
+-- horizontal offset, assuming tokens do not extend over several lines
+offset (CoordPt l c) n = (CoordPt l (c + n))
+
+tokenRng :: Token -> CoordRng
+tokenRng t = CoordRng (coordOfToken t) (offset (coordOfToken t) ((tokenLength t) - 1))
+
+coordFromTo :: CoordRng -> CoordRng -> CoordRng
+coordFromTo (CoordRng f1 t1) (CoordRng f2 t2) = CoordRng f1 t2
+coordFromTo _ _ = CoordUnknown
+
+-- TODO: Preliminary, to be removed
+coordNull :: CoordRng
+coordNull = CoordRng (CoordPt 0 0) (CoordPt 0 0)
 
 }
